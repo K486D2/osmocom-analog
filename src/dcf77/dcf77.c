@@ -69,7 +69,7 @@ const char *datasets_60_89[2] = {
 	"Maximum values 2nd day (2nd following day)",
 };
 
-const char *region[90] = {
+const char *region_name[90] = {
 	"F - Bordeaux, Aquitaine (Suedwestfrankreich)",
 	"F - La Rochelle, Poitou-Charentes (Westkueste Frankreichs)",
 	"F - Paris, Ile-de-France (Pariser Becken)",
@@ -293,7 +293,7 @@ void list_weather(void)
 	printf("List of all regions\n");
 	printf("-------------------\n");
 	for (i = 0; i < 90; i++) {
-		printf("Region: %2d = %s\n", i, region[i]);
+		printf("Region: %2d = %s\n", i, region_name[i]);
 		for (j = 0; j < 8; j++) {
 			/* get local time where transmission starts */
 			if (i < 60) {
@@ -512,7 +512,7 @@ time_t dcf77_start_weather(time_t timestamp, int region, int offset)
 		hour = (19 + (region - 60) / 20) % 24;
 	}
 	min = (region % 20) * 3;
-	LOGP(DDCF77, LOGL_INFO, "Setting UTC time for region %d to %02d:%02d minutes.\n", region, hour, min);
+	LOGP(DDCF77, LOGL_INFO, "Setting UTC time for region %d = %s (to %02d:%02d).\n", region, region_name[region], hour, min);
 
 	/* reset to 0:00 UTC at same day */
 	timestamp -= (timestamp % 86400);
@@ -544,9 +544,9 @@ void dcf77_set_weather(dcf77_t *dcf77, int weather_day, int weather_night, int e
 }
 
 /* generate weather frame from weather data */
-static uint64_t generate_weather(time_t timestamp, int minute, int utc_hour, int weather_day, int weather_night, int extreme, int rain, int wind_dir, int wind_bft, int temperature_day, int temperature_night)
+static uint64_t generate_weather(time_t timestamp, int local_minute, int local_hour, int german_next_minute, int german_utc_hour, int weather_day, int weather_night, int extreme, int rain, int wind_dir, int wind_bft, int temperature_day, int temperature_night)
 {
-	int dataset = ((utc_hour + 2) % 24) * 20 + (minute / 3); /* data sets since 22:00 UTC */
+	int dataset = ((german_utc_hour + 2) % 24) * 20 + (german_next_minute / 3); /* data sets since 22:00 UTC */
 	struct tm *tm;
 	uint64_t key;
 	uint32_t weather;
@@ -580,10 +580,11 @@ static uint64_t generate_weather(time_t timestamp, int minute, int utc_hour, int
 	printf("Peparing Weather INFO\n");
 	printf("---------------------\n");
 	printf("Time (UTC):          %02d:%02d\n", (int)(timestamp / 3600) % 24, (int)(timestamp / 60) % 60);
+	printf("Time (LOCAL/DCF77):  %02d:%02d\n", local_hour, local_minute);
 	/* dataset and region for 0..59 */
 	printf("Dataset:             %s\n", datasets_0_59[dataset / 60]);
 	value = dataset % 60;
-	printf("Region:              %d = %s\n", value, region[value]);
+	printf("Region:              %d = %s\n", value, region_name[value]);
 	/* calc. weather of region */
 	if (weather_day < 0 || weather_day > 15)
 		weather_day = 1;
@@ -665,7 +666,7 @@ static uint64_t generate_weather(time_t timestamp, int minute, int utc_hour, int
 	if ((dataset / 60) == 7) {
 		printf("Dataset:             %s\n", 60 + datasets_60_89[(dataset % 60) / 30]);
 		value = 60 + (dataset % 30);
-		printf("Region:              %d = %s\n", value, region[value]);
+		printf("Region:              %d = %s\n", value, region_name[value]);
 		printf("Weather (day):       %s = %s\n", show_bits(weather_day, 4), weathers_day[weather_day]);
 		printf("Weather (night):     %s = %s\n", show_bits(weather_night, 4), weathers_night[weather_night]);
 		display_weather_temperature("Temperature:         ", weather);
@@ -679,21 +680,22 @@ static uint64_t generate_weather(time_t timestamp, int minute, int utc_hour, int
 }
 
 /* transmit chunk of weather data for each minute */
-static uint16_t tx_weather(dcf77_tx_t *tx, time_t timestamp, int minute, int hour, int zone)
+static uint16_t tx_weather(dcf77_tx_t *tx, time_t timestamp, int local_minute, int local_hour, int zone)
 {
-	int index = (minute + 2) % 3;
-	int utc_hour;
+	int index = (local_minute + 2) % 3;
+	int german_utc_hour;
 	uint16_t chunk;
 
 	if (index == 0) {
-		/* convert hour to UTC */
-		utc_hour = hour - 1;
+		/* Convert hour to (German) UTC. This is the UTC, if your local time would be German time.
+		 * This is required, because German time converted to UTC is used to define what weather information is transmitted. */
+		german_utc_hour = local_hour - 1;
 		if (zone & 1)
-			utc_hour--;
-		if (utc_hour < 0)
-			utc_hour += 24;
+			german_utc_hour--;
+		if (german_utc_hour < 0)
+			german_utc_hour += 24;
 		/* in index 0 we transmit minute + 1 (next minute), so we substract 1 */
-		tx->weather_cipher = generate_weather(timestamp, (minute + 59) % 60, utc_hour, tx->weather_day, tx->weather_night, tx->extreme, tx->rain, tx->wind_dir, tx->wind_bft, tx->temperature_day, tx->temperature_night);
+		tx->weather_cipher = generate_weather(timestamp, local_minute, local_hour, (local_minute + 59) % 60, german_utc_hour, tx->weather_day, tx->weather_night, tx->extreme, tx->rain, tx->wind_dir, tx->wind_bft, tx->temperature_day, tx->temperature_night);
 		LOGP(DFRAME, LOGL_INFO, "Transmitting first chunk of weather info.\n");
 		chunk = (tx->weather_cipher & 0x3f) << 1; /* bit 2-7 */
 		chunk |= (tx->weather_cipher & 0x0fc0) << 2; /* bit 9-14 */
@@ -916,7 +918,7 @@ static void display_weather(uint32_t weather, int minute, int utc_hour)
 	printf("Time (UTC):          %02d:%02d\n", utc_hour, minute);
 	printf("Dataset:             %s\n", datasets_0_59[dataset / 60]);
 	value = dataset % 60;
-	printf("Region:              %d = %s\n", value, region[value]);
+	printf("Region:              %d = %s\n", value, region_name[value]);
 	if ((dataset / 60) < 7) {
 		value = (weather >> 0) & 0xf;
 		printf("Weather (day):       %s = %s\n", show_bits(value, 4), weathers_day[value]);
@@ -960,7 +962,7 @@ static void display_weather(uint32_t weather, int minute, int utc_hour)
 	if ((dataset / 60) == 7) {
 		printf("Dataset:             %s\n", 60 + datasets_60_89[(dataset % 60) / 30]);
 		value = 60 + (dataset % 30);
-		printf("Region:              %d = %s\n", value, region[value]);
+		printf("Region:              %d = %s\n", value, region_name[value]);
 		value = (weather >> 0) & 0xf;
 		printf("Weather (day):       %s = %s\n", show_bits(value, 4), weathers_day[value]);
 		value = (weather >> 4) & 0xf;
