@@ -7,6 +7,7 @@ bin_PROGRAMS = \
 dcf77_SOURCES = \
 	dcf77.c \
 	weather.c \
+	weather_pic.c \
 	cities.c \
 	image.c \
 	main.c

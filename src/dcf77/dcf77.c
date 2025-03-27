@@ -29,6 +29,7 @@
 #include "../liblogging/logging.h"
 #include "dcf77.h"
 #include "weather.h"
+#include "weather_pic.h"
 
 double get_time(void);
 
@@ -162,6 +163,9 @@ const char *region_name[90] = {
 	"CR - Split",
 };
 
+/* NOTE: This mapping is correct! dcf77logs.de use it, esp32-dcf77-weatherman uses it, my TFA clock uses it!
+ * Other information are incorrect.
+ */
 const char *weathers_day[16] = {
 	"Reserved",
 	"Sunny",
@@ -316,6 +320,7 @@ void list_weather(void)
 			printf("Weather: %2d = %s  (day) %s  (night)\n", i, weathers_day[i], weathers_night[i]);
 		else
 			printf("Weather: %2d = %s  (day and night)\n", i, weathers_day[i]);
+		print_weather_pic(i, i);
 	}
 	printf("\n");
 
@@ -662,6 +667,10 @@ static uint64_t generate_weather(time_t timestamp, int local_minute, int local_h
 		if ((dataset / 60) < 7)
 			display_weather_temperature("Temperature (night): ", weather);
 	}
+	/* show picture of weather for region 0..59 */
+	if ((dataset / 60) < 7) {
+		print_weather_pic(weather_day, weather_night);
+	}
 	/* show weather and temperature of of region 60..89 */
 	if ((dataset / 60) == 7) {
 		printf("Dataset:             %s\n", 60 + datasets_60_89[(dataset % 60) / 30]);
@@ -670,6 +679,8 @@ static uint64_t generate_weather(time_t timestamp, int local_minute, int local_h
 		printf("Weather (day):       %s = %s\n", show_bits(weather_day, 4), weathers_day[weather_day]);
 		printf("Weather (night):     %s = %s\n", show_bits(weather_night, 4), weathers_night[weather_night]);
 		display_weather_temperature("Temperature:         ", weather);
+		/* show picture of weather for region 60..89 */
+		print_weather_pic(weather_day, weather_night);
 	}
 
 	/* the magic '10' bit string */
@@ -910,7 +921,7 @@ void dcf77_encode(dcf77_t *dcf77, sample_t *samples, int length)
 static void display_weather(uint32_t weather, int minute, int utc_hour)
 {
 	int dataset = ((utc_hour + 2) % 24) * 20 + (minute / 3); /* data sets since 22:00 UTC */
-	int value;
+	int value, weather_day = 0, weather_night = 0;
 
 	LOGP(DFRAME, LOGL_INFO, "Decoding weather for dataset %d/480\n", dataset);
 	printf("Received Weather INFO\n");
@@ -920,10 +931,10 @@ static void display_weather(uint32_t weather, int minute, int utc_hour)
 	value = dataset % 60;
 	printf("Region:              %d = %s\n", value, region_name[value]);
 	if ((dataset / 60) < 7) {
-		value = (weather >> 0) & 0xf;
-		printf("Weather (day):       %s = %s\n", show_bits(value, 4), weathers_day[value]);
-		value = (weather >> 4) & 0xf;
-		printf("Weather (night):     %s = %s\n", show_bits(value, 4), weathers_night[value]);
+		weather_day = (weather >> 0) & 0xf;
+		printf("Weather (day):       %s = %s\n", show_bits(weather_day, 4), weathers_day[weather_day]);
+		weather_night = (weather >> 4) & 0xf;
+		printf("Weather (night):     %s = %s\n", show_bits(weather_night, 4), weathers_night[weather_night]);
 	}
 	if (((dataset / 60) & 1) == 0) {
 		/* even datasets, this is 'Day' data */
@@ -959,15 +970,19 @@ static void display_weather(uint32_t weather, int minute, int utc_hour)
 		if ((dataset / 60) < 7)
 			display_weather_temperature("Temperature (night): ", weather);
 	}
+	if ((dataset / 60) < 7) {
+		print_weather_pic(weather_day, weather_night);
+	}
 	if ((dataset / 60) == 7) {
 		printf("Dataset:             %s\n", 60 + datasets_60_89[(dataset % 60) / 30]);
 		value = 60 + (dataset % 30);
 		printf("Region:              %d = %s\n", value, region_name[value]);
-		value = (weather >> 0) & 0xf;
-		printf("Weather (day):       %s = %s\n", show_bits(value, 4), weathers_day[value]);
-		value = (weather >> 4) & 0xf;
-		printf("Weather (night):     %s = %s\n", show_bits(value, 4), weathers_night[value]);
+		weather_day = (weather >> 0) & 0xf;
+		printf("Weather (day):       %s = %s\n", show_bits(weather_day, 4), weathers_day[weather_day]);
+		weather_night = (weather >> 4) & 0xf;
+		printf("Weather (night):     %s = %s\n", show_bits(weather_night, 4), weathers_night[weather_night]);
 		display_weather_temperature("Temperature:         ", weather);
+		print_weather_pic(weather_day, weather_night);
 	}
 }
 
