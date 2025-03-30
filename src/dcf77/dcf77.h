@@ -44,6 +44,7 @@ typedef struct dcf77_rx {
 	int string_index;
 	uint64_t data_frame;
 	int weather_index;
+	int weather_utc_hour; /* UTC hour during weather transmission */
 	uint64_t weather_cipher;
 	uint64_t weather_key;
 } dcf77_rx_t;

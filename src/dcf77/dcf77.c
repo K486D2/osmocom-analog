@@ -745,14 +745,17 @@ static char tx_symbol(dcf77_t *dcf77, time_t timestamp, int second)
 	/* generate frame */
 	if (second == 0 || !tx->data_frame) {
 		struct tm *tm;
-		int isdst_next_hour, wday, zone;
+		int isdst_this_hour, isdst_next_hour, wday, zone;
 		uint64_t frame = 0, p;
 
 		/* get DST next hour */
+		timestamp -= 60; /* because DST change is announced during transmission, and does not depend on transmitted time */
+		tm = localtime(&timestamp);
+		isdst_this_hour = tm->tm_isdst;
 		timestamp += 3600;
 		tm = localtime(&timestamp);
-		timestamp -= 3600;
 		isdst_next_hour = tm->tm_isdst;
+		timestamp -= 3540;
 		tm = localtime(&timestamp);
 
 		/* get weather data */
@@ -774,7 +777,7 @@ static char tx_symbol(dcf77_t *dcf77, time_t timestamp, int second)
 
 		LOGP(DDCF77, LOGL_NOTICE, "The time transmitting: %s %s %d %02d:%02d:%02d %s %02d\n", week_day[wday], month_name[tm->tm_mon + 1], tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec, time_zone[zone], tm->tm_year + 1900);
 
-		if ((tm->tm_isdst > 0) != (isdst_next_hour > 0))
+		if ((isdst_this_hour > 0) != (isdst_next_hour > 0))
 			frame |= (uint64_t)1 << 16;
 		if (tm->tm_isdst > 0)
 			frame |= (uint64_t)1 << 17;
@@ -998,7 +1001,6 @@ static void rx_weather_reset(dcf77_rx_t *rx)
 static void rx_weather(dcf77_rx_t *rx, int minute, int hour, int zone, uint64_t frame)
 {
 	int index = (minute + 2) % 3;
-	int utc_hour;
 	int32_t weather;
 
 	if (rx->weather_index == 0 && index != 0) {
@@ -1008,6 +1010,12 @@ static void rx_weather(dcf77_rx_t *rx, int minute, int hour, int zone, uint64_t 
 
 	if (index == 0) {
 		rx_weather_reset(rx);
+		/* convert hour to UTC */
+		rx->weather_utc_hour = hour - 1;
+		if (zone & 1)
+			rx->weather_utc_hour--;
+		if (rx->weather_utc_hour < 0)
+			rx->weather_utc_hour -= 24;
 		rx->weather_cipher |= (frame >> 2) & 0x3f; /* bit 2-7 */
 		rx->weather_cipher |= (frame >> 3) & 0x0fc0; /* bit 9-14 */
 		rx->weather_index++;
@@ -1038,14 +1046,8 @@ static void rx_weather(dcf77_rx_t *rx, int minute, int hour, int zone, uint64_t 
 		if (weather < 0)
 			LOGP(DFRAME, LOGL_NOTICE, "Failed to decrypt weather info, checksum error.\n");
 		else {
-			/* convert hour to UTC */
-			utc_hour = hour - 1;
-			if (zone & 1)
-				utc_hour--;
-			if (utc_hour < 0)
-				utc_hour += 24;
 			/* in index 2 we transmit minute + 3 (next minute), so we substract 3 */
-			display_weather(weather, (minute + 57) % 60, utc_hour);
+			display_weather(weather, (minute + 57) % 60, rx->weather_utc_hour);
 		}
 		rx_weather_reset(rx);
 		return;
