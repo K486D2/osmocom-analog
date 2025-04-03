@@ -8,7 +8,7 @@ https://github.com/tobozo/esp32-dcf77-weatherman/blob/master/dcf77.cpp
 #include <stdint.h>
 #include <endian.h>
 #include "../liblogging/logging.h"
-#include "weather.h"
+#include "weather_crypt.h"
 
 /// Container zum Konvertieren zwischen 4 Bytes und Uint.
 union ByteUInt {

@@ -28,7 +28,7 @@
 #include <math.h>
 #include "../liblogging/logging.h"
 #include "dcf77.h"
-#include "weather.h"
+#include "weather_crypt.h"
 #include "weather_pic.h"
 
 double get_time(void);
