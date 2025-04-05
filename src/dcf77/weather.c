@@ -430,8 +430,8 @@ static uint64_t generate_weather(time_t timestamp, int local_minute, int local_h
 	timestamp -= 120;
 	weather = 0;
 	LOGP(DFRAME, LOGL_INFO, "Encoding weather for dataset %d/480\n", dataset);
-	printf("Peparing Weather INFO\n");
-	printf("---------------------\n");
+	printf("Preparing Weather INFO\n");
+	printf("----------------------\n");
 	printf("Time (UTC):          %02d:%02d\n", (int)(timestamp / 3600) % 24, (int)(timestamp / 60) % 60);
 	printf("Time (LOCAL/DCF77):  %02d:%02d\n", local_hour, local_minute);
 	/* dataset and region for 0..59 */
@@ -541,7 +541,7 @@ static uint64_t generate_weather(time_t timestamp, int local_minute, int local_h
 /* transmit chunk of weather data for each minute */
 uint16_t tx_weather(dcf77_tx_t *tx, time_t timestamp, int local_minute, int local_hour, int zone)
 {
-	int index = (local_minute + 2) % 3;
+	int index = local_minute % 3;
 	int german_utc_hour;
 	uint16_t chunk;
 
@@ -553,8 +553,7 @@ uint16_t tx_weather(dcf77_tx_t *tx, time_t timestamp, int local_minute, int loca
 			german_utc_hour--;
 		if (german_utc_hour < 0)
 			german_utc_hour += 24;
-		/* in index 0 we transmit minute + 1 (next minute), so we substract 1 */
-		tx->weather_cipher = generate_weather(timestamp, local_minute, local_hour, (local_minute + 59) % 60, german_utc_hour, tx->weather_day, tx->weather_night, tx->extreme, tx->rain, tx->wind_dir, tx->wind_bft, tx->temperature_day, tx->temperature_night);
+		tx->weather_cipher = generate_weather(timestamp, local_minute, local_hour, local_minute, german_utc_hour, tx->weather_day, tx->weather_night, tx->extreme, tx->rain, tx->wind_dir, tx->wind_bft, tx->temperature_day, tx->temperature_night);
 		LOGP(DFRAME, LOGL_INFO, "Transmitting first chunk of weather info.\n");
 		chunk = (tx->weather_cipher & 0x3f) << 1; /* bit 2-7 */
 		chunk |= (tx->weather_cipher & 0x0fc0) << 2; /* bit 9-14 */

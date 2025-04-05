@@ -211,13 +211,15 @@ static char tx_symbol(dcf77_t *dcf77, time_t timestamp, int second)
 	/* generate frame */
 	if (second == 0 || !tx->data_frame) {
 		struct tm *tm;
-		int isdst_this_hour, isdst_next_hour, wday, zone;
+		int isdst_this_hour, isdst_next_hour, local_hour, local_min, wday, zone;
 		uint64_t frame = 0, p;
 
 		/* get DST next hour */
 		timestamp -= 60; /* because DST change is announced during transmission, and does not depend on transmitted time */
 		tm = localtime(&timestamp);
 		isdst_this_hour = tm->tm_isdst;
+		local_hour = tm->tm_hour;
+		local_min = tm->tm_min;
 		timestamp += 3600;
 		tm = localtime(&timestamp);
 		isdst_next_hour = tm->tm_isdst;
@@ -226,7 +228,7 @@ static char tx_symbol(dcf77_t *dcf77, time_t timestamp, int second)
 
 		/* get weather data */
 		if (tx->weather) {
-			frame |= tx_weather(tx, timestamp, tm->tm_min, tm->tm_hour, (tm->tm_isdst > 0) ? 1 : 2) << 1;
+			frame |= tx_weather(tx, timestamp, local_min, local_hour, (tm->tm_isdst > 0) ? 1 : 2) << 1;
 			/* calling tx_weather() destroys tm, because it is a pointer to a global variable. now we fix it */
 			tm = localtime(&timestamp);
 		}

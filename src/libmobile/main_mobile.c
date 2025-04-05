@@ -250,7 +250,7 @@ void main_mobile_print_help(const char *arg0, const char *ext_usage)
 	printf(" -k --channel <channel>|list\n");
 	printf("        Channel (German = Kanal) number of \"Sender\" (German = Transceiver)\n");
 	printf("        Use 'list' to show all channels. (Not supported by all applications.)\n");
-	printf(" -a --audio-device hw:<card>,<device>[/hw:<card>.<rec-device>]\n");
+	printf(" -a --audio-device hw:<card>,<device>[/hw:<card>,<rec-device>]\n");
 	printf("        Sound card and device number (default = '%s')\n", dsp_device[0]);
 	printf("        You may specify a different recording device by using '/'.\n");
 	printf("        Don't set it for SDR!\n");
