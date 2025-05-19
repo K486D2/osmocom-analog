@@ -512,48 +512,39 @@ int soapy_send(float *buff, int num)
 int soapy_receive(float *buff, int max)
 {
     	void *buffs_ptr[1];
-	int got = 0, count;
+	int count;
 	long long timeNs;
 	int flags = 0;
 
-	while (1) {
-		if (max < rx_samps_per_buff) {
-			/* no more space this time */
-			sdr_rx_overflow = 1;
-			break;
-		}
-		/* read RX stream */
-		buffs_ptr[0] = buff;
-		count = SoapySDRDevice_readStream(sdr, rxStream, buffs_ptr, rx_samps_per_buff, &flags, &timeNs, 0);
-		if (count > 0) {
-			if (!use_time_stamps || !(flags & SOAPY_SDR_HAS_TIME)) {
-				if (use_time_stamps) {
-					LOGP(DSOAPY, LOGL_ERROR, "SDR RX: No time stamps available. This may cause little gaps and problems with time slot based networks, like C-Netz.\n");
-					use_time_stamps = 0;
-				}
-				timeNs = rx_timeNs;
+	if (max < rx_samps_per_buff) {
+		/* no more space this time */
+		sdr_rx_overflow = 1;
+		return -ENOSPC;
+	}
+	/* read RX stream */
+	buffs_ptr[0] = buff;
+	count = SoapySDRDevice_readStream(sdr, rxStream, buffs_ptr, rx_samps_per_buff, &flags, &timeNs, 0);
+	if (count > 0) {
+		if (!use_time_stamps || !(flags & SOAPY_SDR_HAS_TIME)) {
+			if (use_time_stamps) {
+				LOGP(DSOAPY, LOGL_ERROR, "SDR RX: No time stamps available. This may cause little gaps and problems with time slot based networks, like C-Netz.\n");
+				use_time_stamps = 0;
 			}
-			/* process RX time stamp */
-			if (!rx_valid) {
-				rx_timeNs = timeNs;
-				rx_valid = 1;
-			}
-			pthread_mutex_lock(&timestamp_mutex);
-			if (rx_timeNs != timeNs)
-				LOGP(DSOAPY, LOGL_ERROR, "SDR RX overflow, seems we are too slow. Use lower SDR sample rate, if this happens too often.\n");
-			rx_timeNs = timeNs + count * Ns_per_sample;
-			pthread_mutex_unlock(&timestamp_mutex);
-			/* commit received data to buffer */
-			got += count;
-			buff += count * 2;
-			max -= count;
-		} else {
-			/* got nothing this time */
-			break;
+			timeNs = rx_timeNs;
 		}
+		/* process RX time stamp */
+		if (!rx_valid) {
+			rx_timeNs = timeNs;
+			rx_valid = 1;
+		}
+		pthread_mutex_lock(&timestamp_mutex);
+		if (rx_timeNs != timeNs)
+			LOGP(DSOAPY, LOGL_ERROR, "SDR RX overflow, seems we are too slow. Use lower SDR sample rate, if this happens too often.\n");
+		rx_timeNs = timeNs + count * Ns_per_sample;
+		pthread_mutex_unlock(&timestamp_mutex);
 	}
 
-	return got;
+	return count;
 }
 
 /* estimate number of samples that can be sent */

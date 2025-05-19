@@ -639,7 +639,7 @@ static void *sdr_read_child(void *arg)
 
 	while (sdr->thread_read.running) {
 		/* read from SDR */
-		space = (sdr->thread_read.out - sdr->thread_read.in - 2 + sdr->thread_read.buffer_size) % sdr->thread_read.buffer_size;
+		space = (sdr->thread_read.out - sdr->thread_read.in + sdr->thread_read.buffer_size - 2 + sdr->thread_read.buffer_size) % sdr->thread_read.buffer_size;
 		num = space / 2;
 		if (num) {
 #ifdef HAVE_UHD
@@ -673,8 +673,9 @@ static void *sdr_read_child(void *arg)
 			}
 		}
 
-		/* delay some time */
-		usleep(sdr->interval * 1000.0);
+		/* If receive functions block, we always receive something, so don't sleep. */
+		if (!num || count <= 0)
+			usleep(sdr->interval * 1000.0);
 	}
 
 	LOGP(DSDR, LOGL_DEBUG, "Thread received exit!\n");
@@ -869,7 +870,7 @@ int sdr_write(void *inst, sample_t **samples, uint8_t **power, int num, enum pag
 		int fill, space, in;
 
 		fill = (sdr->thread_write.in - sdr->thread_write.out + sdr->thread_write.buffer_size) % sdr->thread_write.buffer_size;
-		space = (sdr->thread_write.out - sdr->thread_write.in - 2 + sdr->thread_write.buffer_size) % sdr->thread_write.buffer_size;
+		space = (sdr->thread_write.out - sdr->thread_write.in + sdr->thread_write.buffer_size - 2 + sdr->thread_write.buffer_size) % sdr->thread_write.buffer_size;
 
 		/* debug fill level */
 		if (fill > sdr->thread_write.max_fill)

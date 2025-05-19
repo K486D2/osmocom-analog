@@ -579,55 +579,46 @@ int uhd_send(float *buff, int num)
 int uhd_receive(float *buff, int max)
 {
     	void *buffs_ptr[1];
-	size_t got = 0, count;
+	size_t count;
 	uhd_error error;
 	bool has_time_spec;
 	int rc;
 
-	while (1) {
-		if (max < (int)rx_samps_per_buff) {
-			/* no more space this time */
-			sdr_rx_overflow = 1;
-			break;
-		}
-		/* read RX stream */
-		buffs_ptr[0] = buff;
-		count = 0;
-		error = uhd_rx_streamer_recv(rx_streamer, buffs_ptr, rx_samps_per_buff, &rx_metadata, 0.0, false, &count);
-		if (error) {
-			LOGP(DUHD, LOGL_ERROR, "Failed to read from UHD device.\n");
-			break;
-		}
-		if (count) {
-			if (tx_timestamps) {
-				/* get time stamp of received RX packet */
-				rc = uhd_rx_metadata_has_time_spec(rx_metadata, &has_time_spec);
-				if (rc == 0 && has_time_spec)
-					rc = uhd_rx_metadata_time_spec(rx_metadata, &rx_time_secs, &rx_time_fract_sec);
-				if (rc < 0 || !has_time_spec) {
-					LOGP(DSOAPY, LOGL_ERROR, "SDR RX: No time stamps available. This may cuse little gaps and problems with time slot based networks, like C-Netz.\n");
-					tx_timestamps = 0;
-				}
+	if (max < (int)rx_samps_per_buff) {
+		/* no more space this time */
+		sdr_rx_overflow = 1;
+		return -ENOSPC;
+	}
+	/* read RX stream */
+	buffs_ptr[0] = buff;
+	count = 0;
+	error = uhd_rx_streamer_recv(rx_streamer, buffs_ptr, rx_samps_per_buff, &rx_metadata, 0.0, false, &count);
+	if (error) {
+		LOGP(DUHD, LOGL_ERROR, "Failed to read from UHD device.\n");
+		return -EIO;
+	}
+	if (count) {
+		if (tx_timestamps) {
+			/* get time stamp of received RX packet */
+			rc = uhd_rx_metadata_has_time_spec(rx_metadata, &has_time_spec);
+			if (rc == 0 && has_time_spec)
+				rc = uhd_rx_metadata_time_spec(rx_metadata, &rx_time_secs, &rx_time_fract_sec);
+			if (rc < 0 || !has_time_spec) {
+				LOGP(DSOAPY, LOGL_ERROR, "SDR RX: No time stamps available. This may cuse little gaps and problems with time slot based networks, like C-Netz.\n");
+				tx_timestamps = 0;
 			}
-			if (!tx_timestamps) {
-				/* increment time stamp */
-				rx_time_fract_sec += (double)count / samplerate;
-				if (rx_time_fract_sec >= 1.0) {
-					rx_time_secs++;
-					rx_time_fract_sec -= 1.0;
-				}
+		}
+		if (!tx_timestamps) {
+			/* increment time stamp */
+			rx_time_fract_sec += (double)count / samplerate;
+			if (rx_time_fract_sec >= 1.0) {
+				rx_time_secs++;
+				rx_time_fract_sec -= 1.0;
 			}
-			/* commit received data to buffer */
-			got += count;
-			buff += count * 2;
-			max -= count;
-		} else {
-			/* got nothing this time */
-			break;
 		}
 	}
 
-	return got;
+	return count;
 }
 
 /* estimate number of samples that can be sent */
