@@ -205,7 +205,14 @@ void nmt_country_list(int nmt_system)
 		else
 			printf("\n");
 	}
-	printf("\nFor listing channels of the NMT %d system use '-N %d' as first option.\n", 1350 - nmt_system, 1350 - nmt_system);
+	printf("\n");
+	printf("\033[1;33m");
+	printf("************************************************************************\n");
+	printf("\033[1;31m");
+	printf("For listing channels of the NMT %d system use '-N %d' as first option.\n", 1350 - nmt_system, 1350 - nmt_system);
+	printf("\033[1;33m");
+	printf("************************************************************************\n");
+	printf("\033[0;39m");
 }
 
 int nmt_country_by_short_name(int nmt_system, const char *short_name)
