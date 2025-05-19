@@ -150,7 +150,7 @@ dcf77_t *dcf77_create(int samplerate, int use_tx, int use_rx, int test_tone)
 
 		/* measurement parameters */
 		dcf77->dmp_input_level = display_measurements_add(&dcf77->dispmeas, "Input Level", "%.0f dB", DISPLAY_MEAS_AVG, DISPLAY_MEAS_LEFT, -100.0, 0.0, -INFINITY);
-		dcf77->dmp_signal_level = display_measurements_add(&dcf77->dispmeas, "Signal Level", "%.0f dB", DISPLAY_MEAS_AVG, DISPLAY_MEAS_LEFT, -100.0, 0.0, -INFINITY);
+		dcf77->dmp_signal_level = display_measurements_add(&dcf77->dispmeas, "Signal Level", "%.0f dB", DISPLAY_MEAS_AVG, DISPLAY_MEAS_LEFT, -120.0, 0.0, -INFINITY);
 		dcf77->dmp_signal_quality = display_measurements_add(&dcf77->dispmeas, "Signal Qualtiy", "%.0f %%", DISPLAY_MEAS_LAST, DISPLAY_MEAS_LEFT, 0.0, 100.0, -INFINITY);
 		dcf77->dmp_current_second = display_measurements_add(&dcf77->dispmeas, "Current Second", "%.0f", DISPLAY_MEAS_LAST, DISPLAY_MEAS_LEFT, 0.0, 59.0, -INFINITY);
 	}
