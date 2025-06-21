@@ -4,7 +4,10 @@
 #define	JITTER_FLAG_REPEAT	(1 << 1)	// repeat audio to extrapolate gaps
 
 /* window settings for low latency audio and extrapolation of gaps */
-#define JITTER_AUDIO		0.060, 1.000, JITTER_FLAG_LATENCY | JITTER_FLAG_REPEAT
+#define JITTER_AUDIO_TARGET	0.060
+#define JITTER_AUDIO_MAX	1.000
+#define JITTER_AUDIO_FLAGS	JITTER_FLAG_LATENCY | JITTER_FLAG_REPEAT
+#define JITTER_AUDIO		JITTER_AUDIO_TARGET, JITTER_AUDIO_MAX, JITTER_AUDIO_FLAGS
 /* window settings for analog data (fax/modem) or digial data (HDLC) */
 #define JITTER_DATA		0.100, 0.200, JITTER_FLAG_NONE
 
