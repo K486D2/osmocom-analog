@@ -607,8 +607,11 @@ static void ll_msg_cb(osmo_cc_endpoint_t __attribute__((unused)) *ep, uint32_t c
 
 		/* dialing */
 		rc = osmo_cc_get_ie_called(msg, 0, &type, &plan, number, sizeof(number));
-		if (rc < 0)
+		if (rc < 0) {
 			number[0] = '\0';
+			type = OSMO_CC_TYPE_UNKNOWN;
+			plan = OSMO_CC_PLAN_TELEPHONY;
+		}
 		LOGP(DCALL, LOGL_INFO, "Received OSMO-CC call from fixed network '%s' to mobile '%s'\n", caller_id, number);
 		if (!connect_on_setup)
 			indicate_proceeding(callref, sdp);
