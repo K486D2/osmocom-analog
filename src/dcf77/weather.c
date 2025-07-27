@@ -666,7 +666,7 @@ void rx_weather(dcf77_rx_t *rx, int minute, int hour, int zone, uint64_t frame)
 		if (zone & 1)
 			rx->weather_utc_hour--;
 		if (rx->weather_utc_hour < 0)
-			rx->weather_utc_hour -= 24;
+			rx->weather_utc_hour += 24;
 		rx->weather_cipher |= (frame >> 2) & 0x3f; /* bit 2-7 */
 		rx->weather_cipher |= (frame >> 3) & 0x0fc0; /* bit 9-14 */
 		rx->weather_index++;
