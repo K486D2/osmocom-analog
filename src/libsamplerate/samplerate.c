@@ -43,6 +43,48 @@ int init_samplerate(samplerate_t *state, double low_samplerate, double high_samp
 	return 0;
 }
 
+int samplerate_downsample_input_num(samplerate_t *state, int output_num)
+{
+	double factor = state->factor, in_index;
+	int idx;
+
+	/* resample filtered result */
+	in_index = state->down.in_index;
+
+	while (output_num--) {
+		/* increment input index */
+		in_index += factor;
+	}
+
+	/* convert index to int */
+	idx = (int)in_index;
+
+	return idx;
+}
+
+int samplerate_downsample_output_num(samplerate_t *state, int input_num)
+{
+	double factor = state->factor, in_index;
+	int output_num = 0, idx;
+
+	/* count output */
+	in_index = state->down.in_index;
+
+	while (42) {
+		/* convert index to int */
+		idx = (int)in_index;
+		/* if index is outside input sample range, we are done */
+		if (idx >= input_num)
+			break;
+		/* count output number */
+		output_num++;
+		/* increment input index */
+		in_index += factor;
+	}
+
+	return output_num;
+}
+
 /* convert high sample rate to low sample rate */
 int samplerate_downsample(samplerate_t *state, sample_t *samples, int input_num)
 {
