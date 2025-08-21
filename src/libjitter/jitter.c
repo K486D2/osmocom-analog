@@ -213,6 +213,13 @@ void jitter_save(jitter_t *jb, jitter_frame_t *jf)
 	jitter_frame_t **jfp;
 	int32_t offset_timestamp;
 
+	/* Do not store a frame with no size. Dejitter cannot handle this. Also it makes no sense to dejitter it. */
+	if (jf->size == 0) {
+		LOGP(DJITTER, LOGL_NOTICE, "%s Ignore frame with zero-size.\n", jb->name);
+		jitter_frame_free(jf);
+		return;
+	}
+
 	/* ignore frames until the buffer is unlocked by jitter_load() */
 	if (!jb->unlocked) {
 		jitter_frame_free(jf);
@@ -233,7 +240,7 @@ void jitter_save(jitter_t *jb, jitter_frame_t *jf)
 			jb->window_timestamp = jf->timestamp - (uint32_t)jb->target_window_size / 2;
 		} else {
 			jb->window_timestamp = jf->timestamp - (uint32_t)jb->target_window_size;
-	       	}
+		}
 		jb->window_valid = true;
 		jb->window_ssrc = jf->ssrc;
 		jb->min_delay = -1;
