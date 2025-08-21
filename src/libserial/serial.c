@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <fcntl.h>
 #include "serial.h"
 
@@ -123,78 +124,83 @@ serial_t *serial_open(const char *serial_device, int serial_baud, int serial_dat
 		serial->rxtimeout = serial_rxtimeout;
 
 		if ((serial->handle = open(serial->device, O_RDWR | O_NONBLOCK)) >= 0) {
-			if (isatty(serial->handle)) {
-				/* get termios */
-				tcgetattr(serial->handle, &serial->old_termios);
-				tcgetattr(serial->handle, &serial->com_termios);
-				/* set flags */
-				serial->com_termios.c_iflag =
-					((serial->databits == 7) ? ISTRIP : 0) |
-					((serial->xonxoff == 'e') ? (IXON | IXOFF) : 0) ;
-				if (serial_getbreak)
-					serial->com_termios.c_iflag |= (PARMRK | INPCK);
-				else
-					serial->com_termios.c_iflag |= (IGNBRK | IGNPAR);
-				serial->com_termios.c_oflag = 0;
-				serial->com_termios.c_cflag =
-					CREAD |
-					HUPCL |
-					((serial->databits == 5) ? CS5 : 0) |
-					((serial->databits == 6) ? CS6 : 0) |
-					((serial->databits == 7) ? CS7 : 0) |
-					((serial->databits == 8) ? CS8 : 0) |
-					((serial->parity == 'e') ? PARENB : 0) |
-					((serial->parity == 'o') ? (PARENB | PARODD) : 0) |
-					((serial->parity == 's') ? (PARENB | CMSPAR) : 0) |
-					((serial->parity == 'm') ? (PARENB | CMSPAR | PARODD) : 0) |
-					((serial->parity == '0') ? (PARENB | CMSPAR) : 0) |
-					((serial->parity == '1') ? (PARENB | CMSPAR | PARODD) : 0) |
-					((serial->stopbits == 2) ? CSTOPB : 0) |
-					((serial->rtscts =='e' ) ? CRTSCTS : 0) | 
-					((serial->rtscts =='d' ) ? CLOCAL : 0) ;
-				serial->com_termios.c_lflag = 0;
-				serial->com_termios.c_cc[VSTART] = 0x11;
-				serial->com_termios.c_cc[VSTOP] = 0x13;
+			if (flock(serial->handle, LOCK_EX | LOCK_NB) >= 0) {
+				if (isatty(serial->handle)) {
+					/* get termios */
+					tcgetattr(serial->handle, &serial->old_termios);
+					tcgetattr(serial->handle, &serial->com_termios);
+					/* set flags */
+					serial->com_termios.c_iflag =
+						((serial->databits == 7) ? ISTRIP : 0) |
+						((serial->xonxoff == 'e') ? (IXON | IXOFF) : 0) ;
+					if (serial_getbreak)
+						serial->com_termios.c_iflag |= (PARMRK | INPCK);
+					else
+						serial->com_termios.c_iflag |= (IGNBRK | IGNPAR);
+					serial->com_termios.c_oflag = 0;
+					serial->com_termios.c_cflag =
+						CREAD |
+						HUPCL |
+						((serial->databits == 5) ? CS5 : 0) |
+						((serial->databits == 6) ? CS6 : 0) |
+						((serial->databits == 7) ? CS7 : 0) |
+						((serial->databits == 8) ? CS8 : 0) |
+						((serial->parity == 'e') ? PARENB : 0) |
+						((serial->parity == 'o') ? (PARENB | PARODD) : 0) |
+						((serial->parity == 's') ? (PARENB | CMSPAR) : 0) |
+						((serial->parity == 'm') ? (PARENB | CMSPAR | PARODD) : 0) |
+						((serial->parity == '0') ? (PARENB | CMSPAR) : 0) |
+						((serial->parity == '1') ? (PARENB | CMSPAR | PARODD) : 0) |
+						((serial->stopbits == 2) ? CSTOPB : 0) |
+						((serial->rtscts =='e' ) ? CRTSCTS : 0) |
+						((serial->rtscts =='d' ) ? CLOCAL : 0) ;
+					serial->com_termios.c_lflag = 0;
+					serial->com_termios.c_cc[VSTART] = 0x11;
+					serial->com_termios.c_cc[VSTOP] = 0x13;
 
-				/* set baud */
-				serial->com_termios.c_cflag |= baud;
-				cfsetispeed(&serial->com_termios, baud);
-				cfsetospeed(&serial->com_termios, baud);
+					/* set baud */
+					serial->com_termios.c_cflag |= baud;
+					cfsetispeed(&serial->com_termios, baud);
+					cfsetospeed(&serial->com_termios, baud);
 
-				serial->com_termios.c_cc[VMIN] = 0;
-				serial->com_termios.c_cc[VTIME] = (int)(serial->rxtimeout / 0.1 + 0.5);
-	
-				if (tcsetattr(serial->handle, TCSANOW, &serial->com_termios) >= 0) {
-					handshake_lines = TIOCM_DTR;
-					if (serial->rtscts == 'd') {
-						handshake_lines |= TIOCM_RTS;
-					}
-	 				if (ioctl(serial->handle, TIOCMBIS, &handshake_lines) >= 0) {
-						if ((flags = fcntl(serial->handle, F_GETFL, 0)) >= 0) {
-							flags &= ~O_NONBLOCK;
-							if (fcntl(serial->handle, F_SETFL, flags) >= 0) {
-								serial_errno = 0;
-								serial_errnostr = "ok";
-								return serial;
+					serial->com_termios.c_cc[VMIN] = 0;
+					serial->com_termios.c_cc[VTIME] = (int)(serial->rxtimeout / 0.1 + 0.5);
+
+					if (tcsetattr(serial->handle, TCSANOW, &serial->com_termios) >= 0) {
+						handshake_lines = TIOCM_DTR;
+						if (serial->rtscts == 'd') {
+							handshake_lines |= TIOCM_RTS;
+						}
+						if (ioctl(serial->handle, TIOCMBIS, &handshake_lines) >= 0) {
+							if ((flags = fcntl(serial->handle, F_GETFL, 0)) >= 0) {
+								flags &= ~O_NONBLOCK;
+								if (fcntl(serial->handle, F_SETFL, flags) >= 0) {
+									serial_errno = 0;
+									serial_errnostr = "ok";
+									return serial;
+								} else {
+									serial_errno = -EIO;
+									serial_errnostr = "Cannot set fcntl.";
+								}
 							} else {
 								serial_errno = -EIO;
-								serial_errnostr = "Cannot set fcntl.";
+								serial_errnostr = "Cannot read fnctl.";
 							}
 						} else {
 							serial_errno = -EIO;
-							serial_errnostr = "Cannot read fnctl.";
+							serial_errnostr = "Cannot set handshake lines.";
 						}
 					} else {
 						serial_errno = -EIO;
-						serial_errnostr = "Cannot set handshake lines.";
+						serial_errnostr = "TTY refuses settings.";
 					}
 				} else {
 					serial_errno = -EIO;
-					serial_errnostr = "TTY refuses settings.";
+					serial_errnostr = "Device is not a tty!";
 				}
 			} else {
 				serial_errno = -EIO;
-				serial_errnostr = "Device is not a tty!";
+				serial_errnostr = "TTY already in use.";
 			}
 			tcsetattr(serial->handle, TCSANOW, &serial->old_termios);
 			close(serial->handle);
